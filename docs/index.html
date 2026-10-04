@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BTC Gamma Map</title>
+<meta name="description" content="แผนที่ gamma ของ BTC แบบสด: Net GEX, Gamma Flip, โซนรับ/ต้าน จาก Deribit">
+<style>
+  :root{
+    --bg:#f4f5f7; --surface:#ffffff; --fg:#14181f; --muted:#5b6472;
+    --line:#e2e6ec; --accent:#e8a63d; --up:#1f9e6a; --down:#d64550;
+    --grid:#eef1f5;
+    --shadow:0 1px 3px rgba(20,24,31,.06),0 8px 24px rgba(20,24,31,.05);
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --bg:#0e1117; --surface:#161b23; --fg:#e8ecf2; --muted:#8d97a6;
+    --line:#242b36; --accent:#e8a63d; --up:#2bbd82; --down:#e4606f;
+    --grid:#1c222c; --shadow:0 1px 3px rgba(0,0,0,.3),0 8px 28px rgba(0,0,0,.35);
+    color-scheme:dark;
+  }}
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--fg);font-family:var(--sans);line-height:1.5}
+  .wrap{max-width:780px;margin:0 auto;padding-block:20px;padding-inline:16px}
+  h1{font-size:1.25rem;margin:0;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:.8rem;margin-top:2px}
+  .tnum{font-variant-numeric:tabular-nums}
+  header.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .controls{display:flex;gap:8px;align-items:center}
+  select,button{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);
+    border-radius:9px;padding:7px 11px;cursor:pointer}
+  button.refresh{background:var(--accent);color:#1a1200;border-color:transparent;font-weight:600}
+  button.refresh:active{transform:translateY(1px)}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}
+  @media(max-width:560px){.tiles{grid-template-columns:repeat(2,1fr)}}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 13px;box-shadow:var(--shadow)}
+  .tile .k{font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .tile .v{font-size:1.28rem;font-weight:650;margin-top:5px;letter-spacing:-.02em}
+  .tile .v small{font-size:.72rem;font-weight:500;color:var(--muted)}
+  .pill{display:inline-block;font-size:.66rem;font-weight:650;padding:2px 8px;border-radius:999px;margin-top:6px}
+  .pill.long{background:color-mix(in srgb,var(--up) 16%,transparent);color:var(--up)}
+  .pill.short{background:color-mix(in srgb,var(--down) 16%,transparent);color:var(--down)}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:16px;box-shadow:var(--shadow)}
+  .card h2{font-size:.82rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 10px}
+  .chartbox{width:100%;overflow-x:auto}
+  svg{display:block;width:100%;height:auto}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.72rem;color:var(--muted);margin-top:8px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle}
+  .walls{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:560px){.walls{grid-template-columns:1fr}}
+  .wlist{list-style:none;margin:0;padding:0}
+  .wlist li{display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line)}
+  .wlist li:last-child{border-bottom:0}
+  .wlist .px{font-weight:600}
+  .wlist .g{font-size:.78rem;color:var(--muted)}
+  .tag{font-size:.7rem;font-weight:650;padding:1px 7px;border-radius:6px}
+  .tag.r{background:color-mix(in srgb,var(--up) 14%,transparent);color:var(--up)}
+  .tag.s{background:color-mix(in srgb,var(--down) 14%,transparent);color:var(--down)}
+  .foot{color:var(--muted);font-size:.72rem;margin-top:18px;line-height:1.6}
+  .status{color:var(--muted);font-size:.8rem;margin-top:14px}
+  .err{color:var(--down)}
+  a{color:var(--accent)}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="bar">
+    <div>
+      <h1>BTC Gamma Map</h1>
+      <div class="sub" id="asof">กำลังโหลด…</div>
+    </div>
+    <div class="controls">
+      <select id="dte" aria-label="กรองตามอายุคงเหลือ">
+        <option value="7">≤ 7 วัน</option>
+        <option value="30">≤ 30 วัน</option>
+        <option value="45" selected>≤ 45 วัน</option>
+        <option value="90">≤ 90 วัน</option>
+        <option value="9999">ทั้งหมด</option>
+      </select>
+      <button class="refresh" id="refresh">รีเฟรช</button>
+    </div>
+  </header>
+
+  <section class="tiles" id="tiles" hidden>
+    <div class="tile"><div class="k">Spot</div><div class="v tnum" id="t-spot">—</div></div>
+    <div class="tile"><div class="k">Net Dealer GEX</div><div class="v tnum" id="t-gex">—</div><span class="pill" id="t-regime"></span></div>
+    <div class="tile"><div class="k">Gamma Flip</div><div class="v tnum" id="t-flip">—</div></div>
+    <div class="tile"><div class="k">ATM IV</div><div class="v tnum" id="t-iv">—</div></div>
+  </section>
+
+  <section class="card" id="chartcard" hidden>
+    <h2>Gamma ต่อ Strike (dealer, ค่าปัจจุบัน)</h2>
+    <div class="chartbox"><svg id="chart" viewBox="0 0 700 300" role="img" aria-label="แผนภูมิ gamma ต่อ strike"></svg></div>
+    <div class="legend">
+      <span><i style="background:var(--up)"></i>Call gamma (โซนต้าน)</span>
+      <span><i style="background:var(--down)"></i>Put gamma (โซนรับ)</span>
+      <span><i style="background:var(--accent)"></i>Spot</span>
+      <span><i style="background:var(--muted)"></i>Gamma Flip</span>
+    </div>
+  </section>
+
+  <section class="card" id="wallcard" hidden>
+    <div class="walls">
+      <div><h2>โซนต้าน · Call Walls</h2><ul class="wlist" id="calls"></ul></div>
+      <div><h2>โซนรับ · Put Walls</h2><ul class="wlist" id="puts"></ul></div>
+    </div>
+  </section>
+
+  <div class="status" id="status"></div>
+
+  <p class="foot">
+    ข้อมูลสดจาก Deribit (BTC options) คำนวณ Black-Scholes gamma ถ่วงด้วย Open Interest · สมมติ dealer ถือตรงข้ามลูกค้า (Call +gamma / Put −gamma, r=0).
+    ตัวเลข GEX เป็น<strong>เชิงเปรียบเทียบ</strong> ใช้ดูโครงสร้างและจุด Gamma Flip ไม่ใช่มูลค่าดอลลาร์ระดับ dealer จริง ·
+    เพื่อการศึกษา ไม่ใช่คำแนะนำการลงทุน
+  </p>
+</div>
+
+<script>
+const API="https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=BTC&kind=option";
+const MONTHS={JAN:0,FEB:1,MAR:2,APR:3,MAY:4,JUN:5,JUL:6,AUG:7,SEP:8,OCT:9,NOV:10,DEC:11};
+const $=id=>document.getElementById(id);
+const fmt=(n,d=0)=>n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+function parseName(name){
+  const p=name.split("-"); if(p.length!==4) return null;
+  const [,exp,strike,cp]=p;
+  const day=+exp.slice(0,-5), mon=MONTHS[exp.slice(-5,-2)], yr=2000+ +exp.slice(-2);
+  if(isNaN(day)||mon===undefined) return null;
+  return {expiry:Date.UTC(yr,mon,day,8,0,0), strike:+strike, call:cp.toUpperCase()==="C"};
+}
+function bsGamma(S,K,T,iv){
+  if(S<=0||K<=0||T<=0||iv<=0) return 0;
+  const d1=(Math.log(S/K)+0.5*iv*iv*T)/(iv*Math.sqrt(T));
+  return Math.exp(-0.5*d1*d1)/Math.sqrt(2*Math.PI)/(S*iv*Math.sqrt(T));
+}
+function build(rows,maxDte){
+  const now=Date.now(), out=[];
+  for(const r of rows){
+    const m=parseName(r.instrument_name||""); if(!m) continue;
+    const oi=r.open_interest||0, iv=r.mark_iv;
+    if(oi<=0||!iv) continue;
+    const dte=(m.expiry-now)/86400000; if(dte<=0||dte>maxDte) continue;
+    const spot=r.underlying_price||r.estimated_delivery_price; if(!spot) continue;
+    out.push({strike:m.strike,call:m.call,oi,iv:iv/100,t:dte/365,dte,spot});
+  }
+  return out;
+}
+function netGexAt(opts,S){let tot=0;for(const o of opts){const g=bsGamma(S,o.strike,o.t,o.iv)*o.oi*S*S*0.01;tot+=o.call?g:-g;}return tot;}
+function gammaFlip(opts,spot){
+  const lo=spot*0.7,hi=spot*1.3,N=120,cross=[];
+  let pp=lo,pv=netGexAt(opts,lo);
+  for(let i=1;i<=N;i++){const p=lo+(hi-lo)*i/N,v=netGexAt(opts,p);
+    if((pv<0&&v>0)||(pv>0&&v<0)) cross.push(v!==pv?pp+(0-pv)*(p-pp)/(v-pv):p);
+    pp=p;pv=v;}
+  return cross.length?cross.reduce((a,b)=>Math.abs(b-spot)<Math.abs(a-spot)?b:a):null;
+}
+function profile(opts,S){const m={};for(const o of opts){const g=bsGamma(S,o.strike,o.t,o.iv)*o.oi*S*S*0.01;m[o.strike]=(m[o.strike]||0)+(o.call?g:-g);}return m;}
+function atmIV(opts,spot){
+  const near=opts.length?Math.min(...opts.map(o=>o.dte)):0;
+  const c=opts.filter(o=>o.dte<=near+3); if(!c.length) return null;
+  let best=c[0]; for(const o of c) if(Math.abs(o.strike-spot)<Math.abs(best.strike-spot)) best=o;
+  return best.iv;
+}
+function drawChart(prof,spot,flip){
+  const W=700,H=300,padL=8,padR=8,padT=16,padB=28,w=W-padL-padR,h=H-padT-padB;
+  const entries=Object.entries(prof).map(([k,v])=>[+k,v]).filter(([k])=>k>=spot*0.6&&k<=spot*1.6).sort((a,b)=>a[0]-b[0]);
+  const svg=$("chart"); svg.innerHTML=""; if(!entries.length) return;
+  const strikes=entries.map(e=>e[0]),minK=Math.min(...strikes),maxK=Math.max(...strikes);
+  const maxAbs=Math.max(...entries.map(e=>Math.abs(e[1])))||1;
+  const x=k=>padL+(k-minK)/(maxK-minK||1)*w, zeroY=padT+h/2, barW=Math.max(2,w/entries.length*0.6);
+  const ns="http://www.w3.org/2000/svg";
+  const add=(t,a)=>{const e=document.createElementNS(ns,t);for(const k in a)e.setAttribute(k,a[k]);svg.appendChild(e);return e;};
+  add("line",{x1:padL,y1:zeroY,x2:W-padR,y2:zeroY,stroke:"var(--line)","stroke-width":1});
+  for(const [k,v] of entries){const bh=Math.abs(v)/maxAbs*(h/2-4);
+    add("rect",{x:x(k)-barW/2,y:v>=0?zeroY-bh:zeroY,width:barW,height:bh,fill:v>=0?"var(--up)":"var(--down)",opacity:.85,rx:1});}
+  add("line",{x1:x(spot),y1:padT,x2:x(spot),y2:H-padB,stroke:"var(--accent)","stroke-width":2});
+  add("text",{x:x(spot),y:padT-4,fill:"var(--accent)","font-size":11,"text-anchor":"middle","font-weight":700}).textContent="spot "+fmt(spot);
+  if(flip){add("line",{x1:x(flip),y1:padT,x2:x(flip),y2:H-padB,stroke:"var(--muted)","stroke-width":1.5,"stroke-dasharray":"5 4"});
+    add("text",{x:x(flip),y:H-padB+14,fill:"var(--muted)","font-size":10,"text-anchor":"middle"}).textContent="flip "+fmt(flip);}
+  const ticks=6;
+  for(let i=0;i<=ticks;i++){const k=minK+(maxK-minK)*i/ticks;
+    add("text",{x:x(k),y:H-padB+14,fill:"var(--muted)","font-size":9,"text-anchor":"middle"}).textContent=fmt(k/1000)+"k";}
+}
+function walls(prof,spot){
+  const calls=Object.entries(prof).map(([k,v])=>[+k,v]).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const puts=Object.entries(prof).map(([k,v])=>[+k,v]).filter(([,v])=>v<0).sort((a,b)=>a[1]-b[1]).slice(0,5);
+  const row=([k,v],cls)=>`<li><span class="px tnum">$${fmt(k)}</span><span class="g tnum">${fmt(Math.abs(v)/1e6,1)}M <span class="tag ${cls}">${((k/spot-1)*100).toFixed(1)}%</span></span></li>`;
+  $("calls").innerHTML=calls.map(e=>row(e,"r")).join("")||"<li class='g'>—</li>";
+  $("puts").innerHTML=puts.map(e=>row(e,"s")).join("")||"<li class='g'>—</li>";
+}
+async function load(){
+  const st=$("status"); st.className="status"; st.textContent="กำลังดึงข้อมูลจาก Deribit…"; $("refresh").disabled=true;
+  try{
+    const maxDte=+$("dte").value;
+    const res=await fetch(API,{cache:"no-store"}); if(!res.ok) throw new Error("HTTP "+res.status);
+    const data=await res.json();
+    const opts=build(data.result||[],maxDte); if(!opts.length) throw new Error("ไม่มี options ในกรอบอายุที่เลือก");
+    const spot=opts.reduce((s,o)=>s+o.spot,0)/opts.length;
+    const gex=netGexAt(opts,spot),flip=gammaFlip(opts,spot),prof=profile(opts,spot),iv=atmIV(opts,spot),long=gex>0;
+    $("t-spot").textContent="$"+fmt(spot);
+    $("t-gex").innerHTML=(long?"+":"−")+fmt(Math.abs(gex)/1e6,0)+"<small>M</small>";
+    const rg=$("t-regime"); rg.textContent=long?"LONG γ · นิ่ง":"SHORT γ · เสี่ยง squeeze"; rg.className="pill "+(long?"long":"short");
+    if(flip){const d=(flip/spot-1)*100; $("t-flip").innerHTML="$"+fmt(flip)+` <small>${d>=0?"+":""}${d.toFixed(1)}%</small>`;} else $("t-flip").textContent="—";
+    $("t-iv").textContent=iv?(iv*100).toFixed(1)+"%":"—";
+    drawChart(prof,spot,flip); walls(prof,spot);
+    ["tiles","chartcard","wallcard"].forEach(id=>$(id).hidden=false);
+    $("asof").textContent="อัปเดต "+new Date().toLocaleString("th-TH",{dateStyle:"medium",timeStyle:"short"})+" · options "+opts.length+" ตัว · DTE ≤ "+(maxDte>9000?"∞":maxDte);
+    st.textContent="";
+  }catch(e){st.className="status err"; st.textContent="โหลดไม่สำเร็จ: "+e.message+" (ลองกดรีเฟรชอีกครั้ง)";}
+  finally{$("refresh").disabled=false;}
+}
+$("refresh").addEventListener("click",load);
+$("dte").addEventListener("change",load);
+load();
+</script>
+</body>
+</html>
