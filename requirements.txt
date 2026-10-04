@@ -1,0 +1,17 @@
+# ===== เฟสพิสูจน์แนวคิด (snapshot.py) =====
+# ไม่ต้องติดตั้งอะไร — ใช้ Python standard library ล้วน
+
+# ===== เฟสถัดไป (เก็บข้อมูลต่อเนื่อง + เทรด + เรียนรู้) =====
+# ติดตั้งเมื่อพร้อม:  pip install -r requirements.txt
+websocket-client>=1.7      # ต่อ Deribit แบบ realtime
+requests>=2.31             # REST สำรอง / ข้อมูลอื่น
+pandas>=2.2                # จัดการข้อมูล/ตาราง
+numpy>=1.26                # คำนวณเวกเตอร์
+scipy>=1.12                # สถิติ / Greeks ขั้นสูง
+python-dotenv>=1.0         # อ่าน API key จาก .env
+SQLAlchemy>=2.0            # ฐานข้อมูลบันทึกเทรด (ใช้คู่ sqlite ที่มากับ Python)
+APScheduler>=3.10          # ตั้งเวลารันเก็บข้อมูล/เทรนอัตโนมัติ
+scikit-learn>=1.4          # Learning layer เฟสแรก (กรองสัญญาณ)
+matplotlib>=3.8            # กราฟ/รายงานผล backtest
+# lightgbm>=4.3            # โมเดลแรงขึ้น (เปิดใช้เฟสหลัง)
+# MetaTrader5>=5.0         # เชื่อม MT5 (เฉพาะถ้าทำฝั่ง Gold/Oil/FX — Windows เท่านั้น)

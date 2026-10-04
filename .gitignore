@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.pyc
+data/*.json
+data/*.db
+# ไฟล์ CSV ตัวสะสมของ GitHub Actions ต้อง commit ได้ (ยกเว้นจากกฎข้างบน)
+data/*.csv
+!data/btc_snapshots.csv
+.venv/
+venv/

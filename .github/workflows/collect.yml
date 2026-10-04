@@ -1,0 +1,38 @@
+name: Collect BTC GEX snapshot
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # ทุก 30 นาที (GitHub อาจหน่วงได้ในช่วง peak)
+  workflow_dispatch:          # กดรันเองได้จากหน้าเว็บ (ไว้ทดสอบ)
+
+permissions:
+  contents: write             # ให้ workflow commit ข้อมูลกลับ repo ได้
+
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: เก็บ snapshot
+        run: python src/collect_ci.py
+
+      - name: Commit ข้อมูล
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/btc_snapshots.csv
+          if git diff --staged --quiet; then
+            echo "ไม่มีข้อมูลใหม่"
+          else
+            git commit -m "data: BTC snapshot $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+          fi
