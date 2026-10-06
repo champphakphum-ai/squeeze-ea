@@ -2,7 +2,7 @@ name: Collect BTC GEX snapshot
 
 on:
   schedule:
-    - cron: "*/30 * * * *"   # ทุก 30 นาที (GitHub อาจหน่วงได้ในช่วง peak)
+    - cron: "17 * * * *"     # ทุกชั่วโมงที่นาที 17 (off-peak = GitHub หน่วงน้อยกว่า cron ถี่)
   workflow_dispatch:          # กดรันเองได้จากหน้าเว็บ (ไว้ทดสอบ)
 
 permissions:
